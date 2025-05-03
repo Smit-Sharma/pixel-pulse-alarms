@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { useAlarms } from '@/context/AlarmContext';
 import { formatDistanceToNow, format, parse, addDays } from 'date-fns';
+import { Pen, Trash2 } from 'lucide-react';
 
 interface AlarmItemProps {
   alarm: Alarm;
@@ -179,18 +180,20 @@ const AlarmItem: React.FC<AlarmItemProps> = ({ alarm }) => {
           />
           <Button 
             variant="ghost" 
-            size="sm"
+            size="icon"
             onClick={() => navigate(`/edit-alarm/${alarm.id}`)} 
+            title="Edit"
           >
-            Edit
+            <Pen className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
-            size="sm"
+            size="icon"
             onClick={() => deleteAlarm(alarm.id)} 
             className="text-red-500 hover:text-red-700"
+            title="Delete"
           >
-            Delete
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
