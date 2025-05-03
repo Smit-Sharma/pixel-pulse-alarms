@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAlarms } from '@/context/AlarmContext';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AlarmFormProps {
   existingAlarm?: Alarm;
@@ -21,6 +22,8 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
   const [currentTab, setCurrentTab] = useState<string>(
     existingAlarm?.days ? "days" : existingAlarm?.interval ? "interval" : "days"
   );
+  
+  const today = format(new Date(), 'yyyy-MM-dd');
   
   const [hour, setHour] = useState<number>(existingAlarm?.hour || 7);
   const [minute, setMinute] = useState<number>(existingAlarm?.minute || 0);
@@ -42,7 +45,7 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
   );
   
   const [startDate, setStartDate] = useState<string>(
-    existingAlarm?.interval?.startDate || format(new Date(), 'dd-MM-yyyy')
+    existingAlarm?.interval?.startDate || today
   );
   
   const [vibrate, setVibrate] = useState<boolean>(
@@ -73,6 +76,10 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
     setSnoozeDuration(Math.max(1, Math.min(30, value)));
   };
 
+  // Generate arrays for time scrolling
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
+
   const handleSubmit = () => {
     const newAlarm: Alarm = {
       id: existingAlarm?.id || uuidv4(),
@@ -102,26 +109,40 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
       <div className="mb-8 flex justify-center">
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-8">
-            <div className="flex flex-col">
-              <button onClick={() => setHour(prev => (prev < 12 ? prev + 1 : 1))} className="text-gray-400 hover:text-gray-600">
-                {(hour === 12 ? 1 : hour + 1).toString().padStart(1, '0')}
-              </button>
-              <div className="text-4xl font-bold text-blue-500">{hour}</div>
-              <button onClick={() => setHour(prev => (prev > 1 ? prev - 1 : 12))} className="text-gray-400 hover:text-gray-600">
-                {(hour === 1 ? 12 : hour - 1).toString().padStart(1, '0')}
-              </button>
+            {/* Hour Scroll Picker */}
+            <div className="flex flex-col items-center">
+              <ScrollArea className="h-40 w-16 rounded-md border">
+                <div className="p-4">
+                  {hours.map((h) => (
+                    <div 
+                      key={h} 
+                      className={`py-2 text-center cursor-pointer ${h === hour ? 'text-4xl font-bold text-blue-500' : 'text-gray-400 hover:text-gray-600'}`}
+                      onClick={() => setHour(h)}
+                    >
+                      {h}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
             
             <div className="text-4xl font-bold text-blue-500">:</div>
             
-            <div className="flex flex-col">
-              <button onClick={() => setMinute(prev => (prev < 59 ? prev + 1 : 0))} className="text-gray-400 hover:text-gray-600">
-                {(minute === 59 ? 0 : minute + 1).toString().padStart(2, '0')}
-              </button>
-              <div className="text-4xl font-bold text-blue-500">{minute.toString().padStart(2, '0')}</div>
-              <button onClick={() => setMinute(prev => (prev > 0 ? prev - 1 : 59))} className="text-gray-400 hover:text-gray-600">
-                {(minute === 0 ? 59 : minute - 1).toString().padStart(2, '0')}
-              </button>
+            {/* Minute Scroll Picker */}
+            <div className="flex flex-col items-center">
+              <ScrollArea className="h-40 w-16 rounded-md border">
+                <div className="p-4">
+                  {minutes.map((m) => (
+                    <div 
+                      key={m} 
+                      className={`py-2 text-center cursor-pointer ${m === minute ? 'text-4xl font-bold text-blue-500' : 'text-gray-400 hover:text-gray-600'}`}
+                      onClick={() => setMinute(m)}
+                    >
+                      {m.toString().padStart(2, '0')}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
             
             <button 
@@ -154,13 +175,41 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
           
           <TabsContent value="days" className="mt-4">
             <div className="flex justify-between mb-6">
-              <button onClick={() => toggleDay('sunday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.sunday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>S</button>
-              <button onClick={() => toggleDay('monday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.monday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>M</button>
-              <button onClick={() => toggleDay('tuesday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.tuesday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>T</button>
-              <button onClick={() => toggleDay('wednesday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.wednesday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>W</button>
-              <button onClick={() => toggleDay('thursday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.thursday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>T</button>
-              <button onClick={() => toggleDay('friday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.friday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>F</button>
-              <button onClick={() => toggleDay('saturday')} className={`rounded-full w-10 h-10 flex items-center justify-center ${days.saturday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>S</button>
+              <button 
+                onClick={() => toggleDay('sunday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.sunday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >S</button>
+              <button 
+                onClick={() => toggleDay('monday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.monday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >M</button>
+              <button 
+                onClick={() => toggleDay('tuesday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.tuesday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >T</button>
+              <button 
+                onClick={() => toggleDay('wednesday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.wednesday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >W</button>
+              <button 
+                onClick={() => toggleDay('thursday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.thursday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >T</button>
+              <button 
+                onClick={() => toggleDay('friday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.friday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >F</button>
+              <button 
+                onClick={() => toggleDay('saturday')} 
+                className={`rounded-full w-10 h-10 flex items-center justify-center ${days.saturday ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                disabled={currentTab !== "days"}
+              >S</button>
             </div>
           </TabsContent>
           
@@ -171,7 +220,7 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
                 <button 
                   onClick={() => handleChangeIntervalDays(intervalDays - 1)}
                   className="px-3 py-1 bg-gray-200 rounded-l"
-                  disabled={intervalDays <= 1}
+                  disabled={intervalDays <= 1 || currentTab !== "interval"}
                 >
                   -
                 </button>
@@ -181,6 +230,7 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
                 <button 
                   onClick={() => handleChangeIntervalDays(intervalDays + 1)}
                   className="px-3 py-1 bg-gray-200 rounded-r"
+                  disabled={currentTab !== "interval"}
                 >
                   +
                 </button>
@@ -195,6 +245,8 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
                 value={startDate} 
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full"
+                disabled={currentTab !== "interval"}
+                min={today}
               />
             </div>
           </TabsContent>
