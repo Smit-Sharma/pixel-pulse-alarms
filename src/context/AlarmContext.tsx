@@ -1,7 +1,15 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alarm } from '../models/Alarm';
 import { toast } from '@/components/ui/use-toast';
 import { addDays, format, parse, isWithinInterval } from 'date-fns';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface AlarmContextType {
   alarms: Alarm[];
@@ -37,6 +45,14 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (typeof window !== 'undefined') {
       audioRef.current = new Audio('/alarm-sound.mp3');
       audioRef.current.loop = true;
+      
+      // Preload the audio file
+      audioRef.current.load();
+      
+      // Add error event listener for debugging
+      audioRef.current.addEventListener('error', (e) => {
+        console.error("Audio error:", e);
+      });
     }
     
     return () => {
@@ -133,34 +149,47 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (ringingAlarmId && audioRef.current) {
       const alarm = alarms.find(a => a.id === ringingAlarmId);
       
-      // Set the correct sound file
-      if (alarm && alarm.sound) {
-        audioRef.current.src = alarm.sound;
-      } else {
-        audioRef.current.src = '/alarm-sound.mp3';
-      }
+      if (alarm) {
+        try {
+          // Stop any current playback and reset
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          
+          // Set the correct sound file and ensure it's an absolute URL
+          const soundPath = alarm.sound || '/alarm-sound.mp3';
+          audioRef.current.src = soundPath.startsWith('/') ? soundPath : `/${soundPath}`;
+          
+          audioRef.current.loop = true;
+          
+          // Play with promise handling for better error reporting
+          const playPromise = audioRef.current.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.error("Could not play alarm sound:", error);
+            });
+          }
+        } catch (err) {
+          console.error("Error playing alarm sound:", err);
+        }
       
-      audioRef.current.loop = true;
-      audioRef.current.play().catch(err => console.error("Could not play alarm sound:", err));
-      
-      // Request notification permission and show notification
-      if (Notification && Notification.permission !== "granted") {
-        Notification.requestPermission();
-      }
-      
-      if (Notification && Notification.permission === "granted") {
-        if (alarm) {
+        // Request notification permission and show notification
+        if (Notification && Notification.permission !== "granted") {
+          Notification.requestPermission();
+        }
+        
+        if (Notification && Notification.permission === "granted") {
           new Notification("Alarm", {
             body: alarm.label,
             icon: "/favicon.ico"
           });
         }
-      }
-      
-      // Vibrate device if supported and enabled for this alarm
-      if (alarm?.vibrate && navigator.vibrate) {
-        // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
-        navigator.vibrate([500, 200, 500]);
+        
+        // Vibrate device if supported and enabled for this alarm
+        if (alarm?.vibrate && navigator.vibrate) {
+          // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
+          navigator.vibrate([500, 200, 500]);
+        }
       }
     } else if (audioRef.current) {
       audioRef.current.pause();
@@ -299,45 +328,50 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dismissAlarm,
       ringingAlarmId
     }}>
-      {ringingAlarmId && <AlarmModal alarmId={ringingAlarmId} />}
+      {ringingAlarmId && <MobileResponsiveAlarmModal alarmId={ringingAlarmId} />}
       {children}
     </AlarmContext.Provider>
   );
 };
 
-// Component for the alarm modal
-const AlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
+// Component for the alarm modal that's mobile-friendly
+const MobileResponsiveAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   const { alarms, snoozeAlarm, dismissAlarm } = useAlarms();
   const alarm = alarms.find(a => a.id === alarmId);
 
   if (!alarm) return null;
 
+  // Using Sheet component from shadcn/ui for better mobile experience
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-11/12 max-w-md">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold">{alarm.hour}:{alarm.minute.toString().padStart(2, '0')} {alarm.ampm}</h2>
-          <p className="text-xl font-medium mt-2">{alarm.label}</p>
-          
-          <div className="flex items-center justify-center space-x-4 mt-8">
-            {alarm.snooze && (
-              <button 
-                onClick={() => snoozeAlarm(alarmId)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-6 rounded-full"
-              >
-                Snooze ({alarm.snoozeDuration} min)
-              </button>
-            )}
-            
+    <Sheet open={true} modal={true}>
+      <SheetContent side="bottom" className="h-auto rounded-t-3xl">
+        <SheetHeader>
+          <SheetTitle className="text-3xl font-bold mt-6">
+            {alarm.hour}:{alarm.minute.toString().padStart(2, '0')} {alarm.ampm}
+          </SheetTitle>
+          <SheetDescription className="text-xl font-medium">
+            {alarm.label}
+          </SheetDescription>
+        </SheetHeader>
+        
+        <div className="flex items-center justify-center space-x-4 mt-10 mb-8">
+          {alarm.snooze && (
             <button 
-              onClick={() => dismissAlarm(alarmId)}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-full"
+              onClick={() => snoozeAlarm(alarmId)}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-4 px-8 rounded-full text-lg"
             >
-              Dismiss
+              Snooze ({alarm.snoozeDuration} min)
             </button>
-          </div>
+          )}
+          
+          <button 
+            onClick={() => dismissAlarm(alarmId)}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-4 px-8 rounded-full text-lg"
+          >
+            Dismiss
+          </button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 };

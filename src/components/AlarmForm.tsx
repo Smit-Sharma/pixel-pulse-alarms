@@ -85,11 +85,11 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
-  // Available alarm sounds
+  // Available alarm sounds - Use unique ID for keys
   const alarmSounds = [
-    { value: "/alarm-sound.mp3", label: "Default" },
-    { value: "/alarm-sound.mp3", label: "Classic" },
-    { value: "/alarm-sound.mp3", label: "Digital" }
+    { id: "1", value: "/alarm-sound.mp3", label: "Default" },
+    { id: "2", value: "/alarm-sound-classic.mp3", label: "Classic" },
+    { id: "3", value: "/alarm-sound-digital.mp3", label: "Digital" }
   ];
 
   const handleSubmit = () => {
@@ -273,9 +273,9 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
             <SelectValue placeholder="Select a sound" />
           </SelectTrigger>
           <SelectContent>
-            {alarmSounds.map((sound) => (
-              <SelectItem key={sound.value} value={sound.value}>
-                {sound.label}
+            {alarmSounds.map((soundOption) => (
+              <SelectItem key={soundOption.id} value={soundOption.value}>
+                {soundOption.label}
               </SelectItem>
             ))}
           </SelectContent>

@@ -14,6 +14,7 @@ const config: CapacitorConfig = {
       smallIcon: "ic_stat_alarm_notification",
       iconColor: "#488AFF",
       sound: "alarm-sound.mp3",
+      importance: 4,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
