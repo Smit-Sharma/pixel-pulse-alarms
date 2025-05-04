@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAlarms } from '@/context/AlarmContext';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AlarmFormProps {
   existingAlarm?: Alarm;
@@ -59,6 +60,10 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
   const [snoozeDuration, setSnoozeDuration] = useState<number>(
     existingAlarm?.snoozeDuration || 5
   );
+  
+  const [sound, setSound] = useState<string>(
+    existingAlarm?.sound || "/alarm-sound.mp3"
+  );
 
   const handleTabChange = (value: string) => {
     setCurrentTab(value);
@@ -80,6 +85,13 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
+  // Available alarm sounds
+  const alarmSounds = [
+    { value: "/alarm-sound.mp3", label: "Default" },
+    { value: "/alarm-sound.mp3", label: "Classic" },
+    { value: "/alarm-sound.mp3", label: "Digital" }
+  ];
+
   const handleSubmit = () => {
     const newAlarm: Alarm = {
       id: existingAlarm?.id || uuidv4(),
@@ -92,7 +104,8 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
       isActive: existingAlarm?.isActive !== undefined ? existingAlarm.isActive : true,
       vibrate,
       snooze,
-      snoozeDuration
+      snoozeDuration,
+      sound
     };
 
     if (isEditing) {
@@ -251,6 +264,22 @@ const AlarmForm = ({ existingAlarm, isEditing = false }: AlarmFormProps) => {
             </div>
           </TabsContent>
         </Tabs>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Alarm Sound</label>
+        <Select value={sound} onValueChange={setSound}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a sound" />
+          </SelectTrigger>
+          <SelectContent>
+            {alarmSounds.map((sound) => (
+              <SelectItem key={sound.value} value={sound.value}>
+                {sound.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       <div className="mb-4 flex items-center justify-between">
