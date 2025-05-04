@@ -22,4 +22,5 @@ export interface Alarm {
   vibrate: boolean;
   snooze: boolean;
   snoozeDuration: number;
+  sound: string;
 }

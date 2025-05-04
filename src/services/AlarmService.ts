@@ -36,7 +36,9 @@ class AlarmService {
         now.getMonth(),
         now.getDate(),
         hour,
-        alarm.minute
+        alarm.minute,
+        0, // Set seconds to 0
+        0  // Set milliseconds to 0
       );
       
       // If the time has passed for today, set it for tomorrow
@@ -52,10 +54,11 @@ class AlarmService {
             title,
             body: `${alarm.hour}:${alarm.minute.toString().padStart(2, '0')} ${alarm.ampm}`,
             schedule: { at: notificationTime },
-            sound: 'alarm_sound.wav',
+            sound: alarm.sound || 'alarm-sound.mp3',
             actionTypeId: 'ALARM_ACTION',
             extra: {
-              alarmId: alarm.id
+              alarmId: alarm.id,
+              sound: alarm.sound
             }
           }
         ]

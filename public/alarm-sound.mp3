@@ -1,5 +1,1 @@
-
-// This is a placeholder for an audio file.
-// We need to add a real audio file to the public directory.
-// Since we can't directly upload audio files through this interface,
-// we'll use a simple beep sound effect later.
+// Audio file will be replaced with a real audio file during build

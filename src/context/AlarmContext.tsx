@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Alarm } from '../models/Alarm';
 import { toast } from '@/components/ui/use-toast';
 import { addDays, format, parse, isWithinInterval } from 'date-fns';
@@ -31,19 +30,29 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return savedAlarms ? JSON.parse(savedAlarms) : [];
   });
   const [ringingAlarmId, setRingingAlarmId] = useState<string | null>(null);
-  const [audioRef] = useState<HTMLAudioElement | null>(() => {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Create audio element when component mounts
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      return new Audio('/alarm-sound.mp3');
+      audioRef.current = new Audio('/alarm-sound.mp3');
+      audioRef.current.loop = true;
     }
-    return null;
-  });
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
+  }, []);
 
   // Save alarms to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('alarms', JSON.stringify(alarms));
   }, [alarms]);
 
-  // Set up alarm checking interval
+  // Set up alarm checking interval - checking more frequently for precision
   useEffect(() => {
     const checkAlarms = () => {
       // Don't check for new alarms if one is already ringing
@@ -53,7 +62,6 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       const currentDay = now.getDay(); // 0 for Sunday, 1 for Monday, etc.
-      const currentDateString = format(now, 'dd-MM-yyyy');
       
       // Map days of week to alarm.days properties
       const dayMapping = [
@@ -98,6 +106,10 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               console.error("Error calculating interval:", error);
             }
           }
+          // One-time alarm
+          else {
+            shouldRing = true;
+          }
           
           if (shouldRing) {
             triggerAlarm(alarm.id);
@@ -107,20 +119,29 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
     
-    // Check alarms every minute
-    const intervalId = setInterval(checkAlarms, 60000);
+    // Check alarms every 1 second for better precision
+    const intervalId = setInterval(checkAlarms, 1000);
     
     // Also check immediately when component mounts or alarms change
     checkAlarms();
     
     return () => clearInterval(intervalId);
-  }, [alarms, ringingAlarmId, audioRef]);
+  }, [alarms, ringingAlarmId]);
 
   // Handle playing alarm sound
   useEffect(() => {
-    if (ringingAlarmId && audioRef) {
-      audioRef.loop = true;
-      audioRef.play().catch(err => console.error("Could not play alarm sound:", err));
+    if (ringingAlarmId && audioRef.current) {
+      const alarm = alarms.find(a => a.id === ringingAlarmId);
+      
+      // Set the correct sound file
+      if (alarm && alarm.sound) {
+        audioRef.current.src = alarm.sound;
+      } else {
+        audioRef.current.src = '/alarm-sound.mp3';
+      }
+      
+      audioRef.current.loop = true;
+      audioRef.current.play().catch(err => console.error("Could not play alarm sound:", err));
       
       // Request notification permission and show notification
       if (Notification && Notification.permission !== "granted") {
@@ -128,25 +149,22 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       
       if (Notification && Notification.permission === "granted") {
-        const alarm = alarms.find(a => a.id === ringingAlarmId);
         if (alarm) {
           new Notification("Alarm", {
             body: alarm.label,
-            icon: "/favicon.ico",
-            vibrate: alarm.vibrate ? [200, 100, 200] : undefined,
+            icon: "/favicon.ico"
           });
         }
       }
       
       // Vibrate device if supported and enabled for this alarm
-      const alarm = alarms.find(a => a.id === ringingAlarmId);
       if (alarm?.vibrate && navigator.vibrate) {
         // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
         navigator.vibrate([500, 200, 500]);
       }
-    } else if (audioRef) {
-      audioRef.pause();
-      audioRef.currentTime = 0;
+    } else if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       
       // Stop vibration if it was started
       if (navigator.vibrate) {
@@ -165,7 +183,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [ringingAlarmId, alarms, audioRef]);
+  }, [ringingAlarmId, alarms]);
 
   const triggerAlarm = (id: string) => {
     setRingingAlarmId(id);
@@ -184,9 +202,9 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setRingingAlarmId(null);
     
     // Stop audio and vibration
-    if (audioRef) {
-      audioRef.pause();
-      audioRef.currentTime = 0;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
     
     if (navigator.vibrate) {
@@ -220,9 +238,9 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     
     // Stop audio and vibration
-    if (audioRef) {
-      audioRef.pause();
-      audioRef.currentTime = 0;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
     }
     
     if (navigator.vibrate) {
