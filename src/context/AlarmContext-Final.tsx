@@ -12,7 +12,8 @@ import {
   SheetClose
 } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
-import { BellRing, Volume2, X } from 'lucide-react';
+import { Bell, BellRing, Volume2, X } from 'lucide-react';
+import { audioService } from '../services/AudioService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface AlarmContextType {
@@ -43,28 +44,10 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [ringingAlarmId, setRingingAlarmId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  
-  // Audio element reference for playing alarm sounds
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
-  // Initialize audio and check mobile
+  // Initialize AudioService
   useEffect(() => {
-    // Create an audio element and add it to the DOM
-    const audio = new Audio();
-    audio.loop = true;
-    
-    // Add error event listener for debugging
-    audio.addEventListener('error', (e) => {
-      console.error("Audio error:", e);
-    });
-
-    // Add loaded event listener for debugging
-    audio.addEventListener('loadeddata', () => {
-      console.log("Audio loaded successfully");
-    });
-    
-    // Store the audio element in state
-    setAudioElement(audio);
+    audioService.init();
     
     // Check if mobile
     const checkMobile = () => {
@@ -74,13 +57,8 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     checkMobile();
     window.addEventListener('resize', checkMobile);
     
-    // Clean up
     return () => {
       window.removeEventListener('resize', checkMobile);
-      if (audio) {
-        audio.pause();
-        audio.src = '';
-      }
     };
   }, []);
 
@@ -167,76 +145,38 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Handle playing alarm sound
   useEffect(() => {
-    if (ringingAlarmId && audioElement) {
-      const alarm = alarms.find(a => a.id === ringingAlarmId);
+    const alarm = ringingAlarmId ? alarms.find(a => a.id === ringingAlarmId) : null;
+    
+    if (ringingAlarmId && alarm) {
+      // Set the correct sound file based on the alarm configuration
+      const soundPath = alarm.sound || '/alarm-sound.mp3';
       
-      if (alarm) {
-        try {
-          // Stop any current playback and reset
-          audioElement.pause();
-          audioElement.currentTime = 0;
-          
-          // Set the correct sound file based on the alarm configuration
-          const soundPath = alarm.sound || '/alarm-sound.mp3';
-          
-          console.log(`Setting audio source to: ${soundPath}`);
-          audioElement.src = soundPath;
-          audioElement.loop = true;
-          
-          // Try to preload the audio
-          audioElement.load();
-          
-          // Attempt to play the sound
-          const playPromise = audioElement.play();
-          
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                console.log("Audio playback started successfully");
-              })
-              .catch(error => {
-                console.error("Could not play alarm sound:", error);
-                
-                // Try again with user interaction
-                const userInteractionHandler = () => {
-                  if (audioElement) {
-                    audioElement.play()
-                      .then(() => console.log("Audio played after user interaction"))
-                      .catch(err => console.error("Still couldn't play audio:", err));
-                  }
-                  document.removeEventListener('click', userInteractionHandler);
-                };
-                
-                document.addEventListener('click', userInteractionHandler, { once: true });
-              });
-          }
-        } catch (err) {
-          console.error("Error playing alarm sound:", err);
-        }
+      console.log(`Playing alarm sound: ${soundPath}`);
+      // Use the audio service to play the sound
+      audioService.play(soundPath, true);
       
-        // Request notification permission and show notification
-        if (Notification && Notification.permission !== "granted") {
-          Notification.requestPermission();
-        }
-        
-        if (Notification && Notification.permission === "granted") {
-          new Notification("Alarm", {
-            body: alarm.label,
-            icon: "/favicon.ico"
-          });
-        }
-        
-        // Vibrate device if supported and enabled for this alarm
-        if (alarm?.vibrate && navigator.vibrate) {
-          // Vibrate pattern: vibrate for 500ms, pause for 200ms, repeat
-          navigator.vibrate([500, 200, 500, 200, 500, 200, 500]);
-        }
+      // Request notification permission and show notification
+      if (Notification && Notification.permission !== "granted") {
+        Notification.requestPermission();
       }
-    } else if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
       
-      // Stop vibration if it was started
+      if (Notification && Notification.permission === "granted") {
+        new Notification("Alarm", {
+          body: alarm.label,
+          icon: "/favicon.ico"
+        });
+      }
+      
+      // Vibrate device if supported and enabled for this alarm
+      if (alarm?.vibrate && navigator.vibrate) {
+        // Create a pattern that repeats
+        const vibrationPattern = Array(10).fill([500, 200]).flat();
+        navigator.vibrate(vibrationPattern);
+      }
+    } else {
+      // Stop sound and vibration
+      audioService.stop();
+      
       if (navigator.vibrate) {
         navigator.vibrate(0); // Stop vibration
       }
@@ -253,7 +193,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [ringingAlarmId, alarms, audioElement]);
+  }, [ringingAlarmId, alarms]);
 
   const triggerAlarm = (id: string) => {
     setRingingAlarmId(id);
@@ -272,10 +212,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setRingingAlarmId(null);
     
     // Stop audio and vibration
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    }
+    audioService.stop();
     
     if (navigator.vibrate) {
       navigator.vibrate(0);
@@ -308,10 +245,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     
     // Stop audio and vibration
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    }
+    audioService.stop();
     
     if (navigator.vibrate) {
       navigator.vibrate(0);
@@ -370,29 +304,31 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ringingAlarmId
     }}>
       {ringingAlarmId && (isMobile ? 
-        <MobileAlarmDialog alarmId={ringingAlarmId} /> : 
-        <DesktopAlarmDialog alarmId={ringingAlarmId} />
+        <SheetAlarmModal alarmId={ringingAlarmId} /> : 
+        <DialogAlarmModal alarmId={ringingAlarmId} />
       )}
       {children}
     </AlarmContext.Provider>
   );
 };
 
-// Mobile-friendly alarm dialog using Sheet
-const MobileAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
+// Mobile-friendly bottom sheet
+const SheetAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   const { alarms, snoozeAlarm, dismissAlarm } = useAlarms();
   const alarm = alarms.find(a => a.id === alarmId);
 
   if (!alarm) return null;
 
   return (
-    <Sheet open={true}>
+    <Sheet open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
       <SheetContent side="bottom" className="h-auto rounded-t-3xl">
         <div className="absolute right-4 top-4">
-          <Button variant="ghost" size="icon" onClick={() => dismissAlarm(alarmId)}>
-            <X className="h-4 w-4" />
-            <span className="sr-only">Dismiss</span>
-          </Button>
+          <SheetClose asChild onClick={() => dismissAlarm(alarmId)}>
+            <Button variant="ghost" size="icon">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetClose>
         </div>
 
         <SheetHeader className="pt-6">
@@ -429,15 +365,15 @@ const MobileAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   );
 };
 
-// Desktop-friendly alarm dialog
-const DesktopAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
+// Desktop-friendly dialog
+const DialogAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   const { alarms, snoozeAlarm, dismissAlarm } = useAlarms();
   const alarm = alarms.find(a => a.id === alarmId);
 
   if (!alarm) return null;
 
   return (
-    <Dialog open={true}>
+    <Dialog open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">
