@@ -10,7 +10,14 @@ const config: CapacitorConfig = {
     cleartext: true
   },
   plugins: {
-    // Any plugin configurations can be added here
+    LocalNotifications: {
+      smallIcon: "ic_stat_alarm_notification",
+      iconColor: "#488AFF",
+      sound: "alarm_sound.wav",
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    }
   }
 };
 
