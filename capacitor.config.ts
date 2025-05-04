@@ -15,6 +15,8 @@ const config: CapacitorConfig = {
       iconColor: "#488AFF",
       sound: "alarm-sound.mp3",
       importance: 5,
+      channelName: "Alarm Notifications",
+      channelDescription: "Notifications for alarms"
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
@@ -25,6 +27,12 @@ const config: CapacitorConfig = {
     CapacitorCookies: {
       enabled: true
     }
+  },
+  android: {
+    allowMixedContent: true
+  },
+  ios: {
+    contentInset: "always"
   }
 };
 

@@ -5,6 +5,7 @@
 class AudioService {
   private audioElement: HTMLAudioElement | null = null;
   private initialized = false;
+  private soundsLoaded: Record<string, boolean> = {};
 
   /**
    * Initialize the audio service
@@ -14,11 +15,8 @@ class AudioService {
     
     try {
       // Create audio element
-      this.audioElement = document.createElement('audio');
+      this.audioElement = new Audio();
       this.audioElement.preload = 'auto';
-      
-      // Add to DOM to ensure it works on iOS
-      document.body.appendChild(this.audioElement);
       
       // Set up event listeners for debugging
       this.audioElement.addEventListener('error', (e) => {
@@ -26,13 +24,43 @@ class AudioService {
       });
       
       this.audioElement.addEventListener('canplaythrough', () => {
-        console.log('Audio can play through');
+        const src = this.audioElement?.src || '';
+        console.log(`Audio can play through: ${src}`);
+        if (src) {
+          this.soundsLoaded[src] = true;
+        }
       });
+      
+      // Try to preload common sounds
+      this.preloadSounds([
+        '/alarm-sound.mp3',
+        '/alarm-sound-classic.mp3',
+        '/alarm-sound-digital.mp3'
+      ]);
       
       this.initialized = true;
     } catch (error) {
       console.error('Failed to initialize audio service:', error);
     }
+  }
+  
+  /**
+   * Preload sounds for better performance
+   */
+  private preloadSounds(sounds: string[]): void {
+    sounds.forEach(sound => {
+      const audio = new Audio();
+      audio.src = sound;
+      audio.preload = 'auto';
+      audio.load();
+      audio.addEventListener('canplaythrough', () => {
+        this.soundsLoaded[sound] = true;
+        console.log(`Preloaded sound: ${sound}`);
+      });
+      audio.addEventListener('error', (e) => {
+        console.error(`Error preloading sound ${sound}:`, e);
+      });
+    });
   }
 
   /**
@@ -45,17 +73,13 @@ class AudioService {
       this.init();
     }
 
-    if (!this.audioElement) {
-      console.error('Audio element not initialized');
-      return;
-    }
-
+    // Create a new audio element each time to avoid issues with reusing the same element
     try {
       // Stop any currently playing sound first
       this.stop();
       
-      // Set source and loop
-      this.audioElement.src = soundUrl;
+      // Create a new audio element
+      this.audioElement = new Audio(soundUrl);
       this.audioElement.loop = loop;
       
       // Log attempts to play
@@ -97,8 +121,12 @@ class AudioService {
    */
   public stop(): void {
     if (this.audioElement) {
-      this.audioElement.pause();
-      this.audioElement.currentTime = 0;
+      try {
+        this.audioElement.pause();
+        this.audioElement.currentTime = 0;
+      } catch (error) {
+        console.error('Error stopping sound:', error);
+      }
     }
   }
 
