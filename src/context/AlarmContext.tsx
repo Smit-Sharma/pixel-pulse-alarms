@@ -1,7 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Alarm } from '../models/Alarm';
 import { toast } from '@/components/ui/use-toast';
-import { addDays, format, parse, isWithinInterval } from 'date-fns';
+import { addDays, format, parse, isWithinInterval, isSameDay } from 'date-fns';
 import {
   Sheet,
   SheetContent,
@@ -44,7 +45,10 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [ringingAlarmId, setRingingAlarmId] = useState<string | null>(null);
   const isMobile = useIsMobile();
-  const [lastTriggered, setLastTriggered] = useState<{ [key: string]: number }>({}); // Track last trigger time per alarm
+  const [lastTriggered, setLastTriggered] = useState<{ [key: string]: number }>(() => {
+    const saved = localStorage.getItem('lastTriggered');
+    return saved ? JSON.parse(saved) : {};
+  });
   
   // Initialize AudioService
   useEffect(() => {
@@ -59,6 +63,11 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem('alarms', JSON.stringify(alarms));
   }, [alarms]);
+  
+  // Save lastTriggered to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('lastTriggered', JSON.stringify(lastTriggered));
+  }, [lastTriggered]);
 
   // Set up alarm checking interval - checking more frequently for precision
   useEffect(() => {
@@ -233,6 +242,14 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const dismissAlarm = useCallback((id: string) => {
     setRingingAlarmId(null);
     
+    // Mark alarm as triggered for today to prevent re-triggering
+    setLastTriggered(prev => {
+      const now = new Date();
+      // Use end of day timestamp to ensure it doesn't trigger again today
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
+      return { ...prev, [id]: endOfDay };
+    });
+    
     // For one-time alarms, disable them after dismissal
     setAlarms(prevAlarms => {
       return prevAlarms.map(alarm => {
@@ -336,12 +353,10 @@ const SheetAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
         e.preventDefault();
       }}>
         <div className="absolute right-4 top-4">
-          <SheetClose asChild>
-            <Button variant="ghost" size="icon" onClick={handleDismiss}>
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </SheetClose>
+          <Button variant="ghost" size="icon" onClick={handleDismiss}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
         </div>
 
         <SheetHeader className="pt-6">
