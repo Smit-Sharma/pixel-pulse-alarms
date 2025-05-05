@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Alarm } from '../models/Alarm';
 import { toast } from '@/components/ui/use-toast';
@@ -14,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { BellRing, Volume2, X } from 'lucide-react';
 import { audioService } from '../services/AudioService';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useIsMobile } from '../hooks/use-mobile';
 
 interface AlarmContextType {
@@ -332,15 +331,17 @@ const SheetAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   };
 
   return (
-    <Sheet open={true}>
+    <Sheet open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
       <SheetContent side="bottom" className="h-auto rounded-t-3xl" onInteractOutside={(e) => {
         e.preventDefault();
       }}>
         <div className="absolute right-4 top-4">
-          <Button variant="ghost" size="icon" onClick={handleDismiss}>
-            <X className="h-4 w-4" />
-            <span className="sr-only">Dismiss</span>
-          </Button>
+          <SheetClose asChild>
+            <Button variant="ghost" size="icon" onClick={handleDismiss}>
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </SheetClose>
         </div>
 
         <SheetHeader className="pt-6">
@@ -397,10 +398,17 @@ const DialogAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   };
 
   return (
-    <Dialog open={true}>
+    <Dialog open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
       <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
         e.preventDefault();
       }}>
+        <div className="absolute right-4 top-4">
+          <Button variant="ghost" size="icon" onClick={handleDismiss}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
+
         <DialogHeader>
           <DialogTitle className="text-center text-2xl">
             <div className="flex items-center justify-center gap-2">
@@ -413,13 +421,6 @@ const DialogAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
           </DialogDescription>
           <p className="text-center text-lg">{alarm.label}</p>
         </DialogHeader>
-
-        <DialogClose asChild className="absolute right-4 top-4" onClick={handleDismiss}>
-          <Button variant="ghost" size="icon">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Dismiss</span>
-          </Button>
-        </DialogClose>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
           <Volume2 className="h-8 w-8 text-blue-500 animate-pulse" />

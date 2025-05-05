@@ -32,7 +32,8 @@ const config: CapacitorConfig = {
       showSpinner: true,
       androidSpinnerStyle: "large",
       spinnerColor: "#488AFF",
-      backgroundColor: "#FFFFFF"
+      backgroundColor: "#FFFFFF",
+      duration: 1000
     }
   },
   android: {
@@ -43,7 +44,8 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: "always",
-    backgroundColor: "#FFFFFF"
+    backgroundColor: "#FFFFFF",
+    allowsLinkPreview: false
   }
 };
 
