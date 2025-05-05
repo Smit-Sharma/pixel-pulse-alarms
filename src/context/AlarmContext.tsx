@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Alarm } from '../models/Alarm';
 import { toast } from '@/components/ui/use-toast';
@@ -360,9 +359,14 @@ const SheetAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
 
   return (
     <Sheet open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
-      <SheetContent side="bottom" className="h-auto rounded-t-3xl" onInteractOutside={(e) => {
-        e.preventDefault();
-      }}>
+      <SheetContent 
+        side="bottom" 
+        className="h-auto rounded-t-3xl" 
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+        hideCloseButton={true}
+      >
         <div className="absolute right-4 top-4">
           <Button variant="ghost" size="icon" onClick={handleDismiss}>
             <X className="h-4 w-4" />
@@ -425,9 +429,13 @@ const DialogAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && dismissAlarm(alarmId)}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => {
-        e.preventDefault();
-      }}>
+      <DialogContent 
+        className="sm:max-w-md" 
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+        hideCloseButton={true}
+      >
         <div className="absolute right-4 top-4">
           <Button variant="ghost" size="icon" onClick={handleDismiss}>
             <X className="h-4 w-4" />
