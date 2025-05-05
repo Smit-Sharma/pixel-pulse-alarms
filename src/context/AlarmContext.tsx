@@ -242,12 +242,16 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const dismissAlarm = useCallback((id: string) => {
     setRingingAlarmId(null);
     
-    // Mark alarm as triggered for today to prevent re-triggering
+    // Only mark the alarm as triggered for today for non-edited alarms
+    // This way, edited alarms can still trigger on their new times
+    const currentDate = new Date();
+    const today = format(currentDate, 'yyyy-MM-dd');
+    
     setLastTriggered(prev => {
-      const now = new Date();
-      // Use end of day timestamp to ensure it doesn't trigger again today
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
-      return { ...prev, [id]: endOfDay };
+      // Instead of marking with end of day timestamp, use a format that tracks which date it was triggered
+      const updatedLastTriggered = { ...prev };
+      updatedLastTriggered[id] = currentDate.getTime();
+      return updatedLastTriggered;
     });
     
     // For one-time alarms, disable them after dismissal
@@ -281,6 +285,13 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const updateAlarm = useCallback((updatedAlarm: Alarm) => {
+    // When an alarm is updated, clear its last triggered time so it can ring again
+    setLastTriggered(prev => {
+      const updated = { ...prev };
+      delete updated[updatedAlarm.id];
+      return updated;
+    });
+    
     setAlarms(prevAlarms => 
       prevAlarms.map(alarm => 
         alarm.id === updatedAlarm.id ? updatedAlarm : alarm
