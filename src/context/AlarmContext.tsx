@@ -45,6 +45,16 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [ringingAlarmId, setRingingAlarmId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const [lastTriggered, setLastTriggered] = useState<{ [key: string]: number }>({}); // Track last trigger time per alarm
+  
+  // Initialize AudioService
+  useEffect(() => {
+    audioService.init();
+    return () => {
+      // Clean up audio when component unmounts
+      audioService.stop();
+    };
+  }, []);
   
   // Save alarms to localStorage whenever they change
   useEffect(() => {
@@ -61,6 +71,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
       const currentDay = now.getDay(); // 0 for Sunday, 1 for Monday, etc.
+      const currentTime = now.getTime();
       
       // Map days of week to alarm.days properties
       const dayMapping = [
@@ -70,6 +81,10 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Check each alarm
       for (const alarm of alarms) {
         if (!alarm.isActive) continue;
+        
+        // Check if this alarm was triggered in the last minute
+        const lastTriggerTime = lastTriggered[alarm.id] || 0;
+        if (currentTime - lastTriggerTime < 60 * 1000) continue; // Skip if triggered within last minute
         
         // Convert alarm hour to 24-hour format
         let alarmHour = alarm.hour;
@@ -112,6 +127,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           
           if (shouldRing) {
             triggerAlarm(alarm.id);
+            setLastTriggered(prev => ({ ...prev, [alarm.id]: currentTime }));
             break; // Only trigger one alarm at a time
           }
         }
@@ -125,7 +141,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     checkAlarms();
     
     return () => clearInterval(intervalId);
-  }, [alarms, ringingAlarmId]);
+  }, [alarms, ringingAlarmId, lastTriggered]);
 
   // Handle playing alarm sound
   useEffect(() => {
@@ -154,7 +170,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Vibrate device if supported and enabled for this alarm
       if (alarm?.vibrate && navigator.vibrate) {
         // Create a pattern that repeats
-        const vibrationPattern = [500, 200, 500, 200, 500, 200, 500, 200];
+        const vibrationPattern = Array(10).fill([500, 200]).flat();
         navigator.vibrate(vibrationPattern);
       }
     } else {
@@ -288,8 +304,8 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ringingAlarmId
     }}>
       {ringingAlarmId && (isMobile ? 
-        <MobileAlarmDialog alarmId={ringingAlarmId} /> : 
-        <DesktopAlarmDialog alarmId={ringingAlarmId} />
+        <SheetAlarmModal alarmId={ringingAlarmId} /> : 
+        <DialogAlarmModal alarmId={ringingAlarmId} />
       )}
       {children}
     </AlarmContext.Provider>
@@ -297,7 +313,7 @@ export const AlarmProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 // Mobile-friendly alarm dialog using Sheet
-const MobileAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
+const SheetAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   const { alarms, snoozeAlarm, dismissAlarm } = useAlarms();
   const alarm = alarms.find(a => a.id === alarmId);
 
@@ -362,7 +378,7 @@ const MobileAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
 };
 
 // Desktop-friendly alarm dialog
-const DesktopAlarmDialog: React.FC<{ alarmId: string }> = ({ alarmId }) => {
+const DialogAlarmModal: React.FC<{ alarmId: string }> = ({ alarmId }) => {
   const { alarms, snoozeAlarm, dismissAlarm } = useAlarms();
   const alarm = alarms.find(a => a.id === alarmId);
 

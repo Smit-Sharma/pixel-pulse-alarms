@@ -6,6 +6,7 @@ class AudioService {
   private audioElement: HTMLAudioElement | null = null;
   private initialized = false;
   private soundsLoaded: Record<string, boolean> = {};
+  private preloadedSounds: Record<string, HTMLAudioElement> = {};
 
   /**
    * Initialize the audio service
@@ -49,17 +50,28 @@ class AudioService {
    */
   private preloadSounds(sounds: string[]): void {
     sounds.forEach(sound => {
-      const audio = new Audio();
-      audio.src = sound;
-      audio.preload = 'auto';
-      audio.load();
-      audio.addEventListener('canplaythrough', () => {
-        this.soundsLoaded[sound] = true;
-        console.log(`Preloaded sound: ${sound}`);
-      });
-      audio.addEventListener('error', (e) => {
-        console.error(`Error preloading sound ${sound}:`, e);
-      });
+      try {
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = sound;
+        
+        // Store the preloaded sound
+        this.preloadedSounds[sound] = audio;
+        
+        audio.addEventListener('canplaythrough', () => {
+          this.soundsLoaded[sound] = true;
+          console.log(`Preloaded sound: ${sound}`);
+        });
+        
+        audio.addEventListener('error', (e) => {
+          console.error(`Error preloading sound ${sound}:`, e);
+        });
+        
+        // Force load
+        audio.load();
+      } catch (error) {
+        console.error(`Error creating audio for ${sound}:`, error);
+      }
     });
   }
 
@@ -73,46 +85,137 @@ class AudioService {
       this.init();
     }
 
-    // Create a new audio element each time to avoid issues with reusing the same element
     try {
       // Stop any currently playing sound first
       this.stop();
       
-      // Create a new audio element
-      this.audioElement = new Audio(soundUrl);
-      this.audioElement.loop = loop;
+      // Use preloaded sound if available
+      if (this.preloadedSounds[soundUrl]) {
+        this.audioElement = this.preloadedSounds[soundUrl];
+      } else {
+        // Create a new audio element if no preloaded version
+        this.audioElement = new Audio(soundUrl);
+      }
       
-      // Log attempts to play
-      console.log(`Attempting to play sound: ${soundUrl}`);
-      
-      // Attempt to play
-      const playPromise = this.audioElement.play();
-      
-      // Handle play promise
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => console.log('Audio playback started successfully'))
-          .catch((error) => {
-            console.error('Could not play audio:', error);
-            
-            // Try again with user interaction - useful for browsers that require user gesture
-            const userInteractionHandler = () => {
-              if (this.audioElement) {
-                const retryPlay = this.audioElement.play();
-                retryPlay
-                  .then(() => console.log('Audio played after user interaction'))
-                  .catch((err) => console.error('Still could not play audio:', err));
-              }
-              
-              // Remove event listener after attempt
-              document.removeEventListener('click', userInteractionHandler);
-            };
-            
-            document.addEventListener('click', userInteractionHandler, { once: true });
-          });
+      // Set properties
+      if (this.audioElement) {
+        this.audioElement.loop = loop;
+        this.audioElement.volume = 1.0;
+        
+        // Log attempts to play
+        console.log(`Attempting to play sound: ${soundUrl}`);
+        
+        // Try multiple play strategies for better browser compatibility
+        this.tryMultiplePlayStrategies();
       }
     } catch (error) {
       console.error('Error playing sound:', error);
+      // Fallback to a different audio implementation
+      this.playFallback(soundUrl, loop);
+    }
+  }
+  
+  /**
+   * Try multiple strategies to play audio to overcome browser restrictions
+   */
+  private tryMultiplePlayStrategies(): void {
+    if (!this.audioElement) return;
+    
+    // Strategy 1: Standard play
+    const playPromise = this.audioElement.play();
+    
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log('Audio playback started successfully');
+        })
+        .catch((error) => {
+          console.error('Could not play audio with standard strategy:', error);
+          
+          // Strategy 2: Set up user interaction handler
+          this.setupUserInteractionPlayback();
+          
+          // Strategy 3: Create and play a new Audio
+          this.playWithNewAudio(this.audioElement.src, this.audioElement.loop);
+        });
+    } else {
+      // For browsers that don't return a promise
+      console.log('Browser does not return play promise, assuming playback started');
+    }
+  }
+  
+  /**
+   * Set up a handler to play audio on user interaction
+   */
+  private setupUserInteractionPlayback(): void {
+    const userInteractionHandler = () => {
+      if (this.audioElement) {
+        const retryPlay = this.audioElement.play();
+        if (retryPlay) {
+          retryPlay
+            .then(() => console.log('Audio played after user interaction'))
+            .catch((err) => console.error('Still could not play audio:', err));
+        }
+      }
+      
+      // Remove event listener after attempt
+      document.removeEventListener('click', userInteractionHandler);
+      document.removeEventListener('touchstart', userInteractionHandler);
+    };
+    
+    document.addEventListener('click', userInteractionHandler, { once: true });
+    document.addEventListener('touchstart', userInteractionHandler, { once: true });
+  }
+  
+  /**
+   * Alternative approach using a new Audio instance
+   */
+  private playWithNewAudio(src: string, loop: boolean): void {
+    try {
+      const newAudio = new Audio();
+      newAudio.src = src;
+      newAudio.loop = loop;
+      newAudio.volume = 1.0;
+      
+      const newPlayPromise = newAudio.play();
+      if (newPlayPromise) {
+        newPlayPromise
+          .then(() => {
+            console.log('Audio played with new Audio instance');
+            this.audioElement = newAudio;
+          })
+          .catch(err => console.error('Failed to play with new Audio:', err));
+      }
+    } catch (error) {
+      console.error('Error creating new Audio:', error);
+    }
+  }
+  
+  /**
+   * Fallback method using Web Audio API
+   */
+  private playFallback(soundUrl: string, loop: boolean): void {
+    try {
+      console.log('Attempting fallback audio playback for:', soundUrl);
+      
+      // Use the audio element for simplicity, but could be replaced with Web Audio API
+      const fallbackAudio = new Audio(soundUrl);
+      fallbackAudio.loop = loop;
+      fallbackAudio.volume = 1.0;
+      
+      // Add event listeners
+      fallbackAudio.addEventListener('play', () => console.log('Fallback audio playing'));
+      fallbackAudio.addEventListener('error', (e) => console.error('Fallback audio error:', e));
+      
+      // Attempt to play
+      fallbackAudio.play()
+        .then(() => {
+          console.log('Fallback audio started');
+          this.audioElement = fallbackAudio;
+        })
+        .catch(e => console.error('Fallback audio play failed:', e));
+    } catch (error) {
+      console.error('Fallback audio system failed:', error);
     }
   }
 

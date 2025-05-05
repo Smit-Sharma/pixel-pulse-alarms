@@ -26,13 +26,24 @@ const config: CapacitorConfig = {
     },
     CapacitorCookies: {
       enabled: true
+    },
+    SplashScreen: {
+      launchAutoHide: false,
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      spinnerColor: "#488AFF",
+      backgroundColor: "#FFFFFF"
     }
   },
   android: {
-    allowMixedContent: true
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: true,
+    backgroundColor: "#FFFFFF"
   },
   ios: {
-    contentInset: "always"
+    contentInset: "always",
+    backgroundColor: "#FFFFFF"
   }
 };
 
